@@ -3,6 +3,7 @@
 # Generates a random token for local dev, or uses a hardcoded one
 export NETSCAN_AUTH_TOKEN="dev_token_secret_123"
 export PORT="8081"
+export ALLOWED_ORIGINS="http://localhost:8080"
 
 echo "================================================="
 echo "🚀 Starting NetScan Bridge (Local Dev Mode)"
