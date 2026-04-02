@@ -11,12 +11,12 @@ import (
 )
 
 // mockRunScanSuccess simulates the Executor returning a valid native engine completion
-func mockRunScanSuccess(ctx context.Context, target string, flags ...string) (string, error) {
+func mockRunScanSuccess(ctx context.Context, target string, scanType string, flags ...string) (string, error) {
 	return `{"network":"` + target + `","status":"scanned","flags":` + string(rune('0'+len(flags))) + `}`, nil
 }
 
 // mockRunScanFailure simulates the Executor failing (e.g. invalid permissions, crashed binary)
-func mockRunScanFailure(ctx context.Context, target string, flags ...string) (string, error) {
+func mockRunScanFailure(ctx context.Context, target string, scanType string, flags ...string) (string, error) {
 	return "", errors.New("simulated native engine failure")
 }
 
@@ -43,7 +43,7 @@ func TestScanHandlerAndAuth(t *testing.T) {
 		method         string
 		authHeader     string
 		body           string
-		mockScan       func(context.Context, string, ...string) (string, error)
+		mockScan       func(context.Context, string, string, ...string) (string, error)
 		expectedStatus int
 		expectedBody   string
 	}{

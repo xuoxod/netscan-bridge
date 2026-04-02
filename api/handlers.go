@@ -14,8 +14,9 @@ var RunScan = executor.ExecuteScan
 
 // ScanRequest tightly structures exactly what clients are permitted to transmit
 type ScanRequest struct {
-	Target string   `json:"target"`
-	Flags  []string `json:"flags,omitempty"`
+	Target   string   `json:"target"`
+	ScanType string   `json:"scan_type,omitempty"`
+	Flags    []string `json:"flags,omitempty"`
 }
 
 // StatusHandler natively ping-backs a healthy 200 JSON payload.
@@ -50,12 +51,17 @@ func ScanHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.ScanType == "" {
+		req.ScanType = "discover"
+	}
+
 	// 🚀 Send the validated schema to our sandboxed OS executor
-	output, err := RunScan(r.Context(), req.Target, req.Flags...)
+	output, err := RunScan(r.Context(), req.Target, req.ScanType, req.Flags...)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		// We purposefully bubble the stdout/stderr string error back wrapped in valid JSON
-		fmt.Fprintf(w, `{"error":"%s"}`, err.Error())
+		escapedErr := strings.ReplaceAll(err.Error(), `"`, `\"`)
+		fmt.Fprintf(w, `{"error":"%s"}`, escapedErr)
 		return
 	}
 

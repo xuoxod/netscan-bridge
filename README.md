@@ -52,3 +52,31 @@ To compile and run the API Bridge, the following developer toolchain is required
    ```
 
 2. The Bridge boots locally to `http://localhost:8080` awaiting commands.
+
+## Mobile Remote Control (Intelligence Bridge Architecture)
+
+A critical design feature of the `rmediatech` and `netscan` ecosystem is its **"Mobile Remote Control"** capability, explicitly built to bypass the restrictions of mobile browsers and eliminate the need for native iOS/Android App Store applications.
+
+### How It Works:
+1. **The Intelligence Bridge (`netscan_bridge`)**: A user downloads the lightweight Bridge API executable (which we configure to embed the native Rust engine) and runs it on a desktop, laptop, or Raspberry Pi connected to their local home network. 
+2. **The Smart UI (`rmediatech`)**: The user visits the `rmediatech` web dashboard on their mobile phone. The web application detects the device type and dynamically adapts its UI to function as a sleek remote control rather than a standard web app.
+3. **Execution**: The user commands a "Live Recon" via their phone. The web application fires a secure webhook directly to the Bridge API running on their desktop on port `:8081`. The desktop executes the native network sweep on the local network and returns the raw JSON payload back to the phone.
+4. **Ingestion**: The `rmediatech` frontend natively ingests this payload, parsing the JSON report and automatically rendering the results via the Universal Ingestion Pipeline.
+
+### Device-Specific User Flows:
+- **Desktop/Laptop Users:** These users have the native capability to run CLIs or use `localhost`. The web UI elegantly exposes standard file-upload modalities alongside a `localhost:8081` Live Recon trigger.
+- **Mobile Users:** Mobile users cannot run low-level packet sweeps themselves. Therefore, the web UI automatically hides standard upload buttons and exclusively provides "Remote Control" inputs. Mobile users simply provide the local IP address of their computer running the Intelligence Bridge (e.g., `192.168.1.50`) and the UI handles the entire orchestration.
+
+## Mobile Remote Control (Intelligence Bridge Architecture)
+
+A critical design feature of the `rmediatech` and `netscan` ecosystem is its **"Mobile Remote Control"** capability, explicitly built to bypass the restrictions of mobile browsers and eliminate the need for native iOS/Android App Store applications.
+
+### How It Works:
+1. **The Intelligence Bridge (`netscan_bridge`)**: A user downloads the lightweight Bridge API executable (which we configure to embed the native Rust engine) and runs it on a desktop, laptop, or Raspberry Pi connected to their local home network. 
+2. **The Smart UI (`rmediatech`)**: The user visits the `rmediatech` web dashboard on their mobile phone. The web application detects the device type and dynamically adapts its UI to function as a sleek remote control rather than a standard web app.
+3. **Execution**: The user commands a "Live Recon" via their phone. The web application fires a secure webhook directly to the Bridge API running on their desktop on port `:8081`. The desktop executes the native network sweep on the local network and returns the raw JSON payload back to the phone.
+4. **Ingestion**: The `rmediatech` frontend natively ingests this payload, parsing the JSON report and automatically rendering the results via the Universal Ingestion Pipeline.
+
+### Device-Specific User Flows:
+- **Desktop/Laptop Users:** These users have the native capability to run CLIs or use `localhost`. The web UI elegantly exposes standard file-upload modalities alongside a `localhost:8081` Live Recon trigger.
+- **Mobile Users:** Mobile users cannot run low-level packet sweeps themselves. Therefore, the web UI automatically hides standard upload buttons and exclusively provides "Remote Control" inputs. Mobile users simply provide the local IP address of their computer running the Intelligence Bridge (e.g., `192.168.1.50`) and the UI handles the entire orchestration.
