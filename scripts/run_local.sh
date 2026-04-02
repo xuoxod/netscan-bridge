@@ -11,6 +11,7 @@ cd "$PROJECT_ROOT"
 export NETSCAN_AUTH_TOKEN="dev_token_secret_123"
 export PORT="8081"
 export ALLOWED_ORIGINS="http://localhost:8080"
+export NETSCAN_BIN_PATH="/home/emhcet/private/projects/desktop/java/netscan/target/release/netscan"
 
 echo "================================================="
 echo "🚀 Starting Intelligence Bridge (Local Dev Mode)"
