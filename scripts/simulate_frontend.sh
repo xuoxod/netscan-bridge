@@ -1,7 +1,5 @@
 #!/bin/bash
-
-# This script simulates the exact AJAX fetch() request your Vanilla JS
-# frontend will make. It includes the Origin header to verify CORS works!
+set -e
 
 echo "📡 Simulating API Post from http://localhost:8080..."
 

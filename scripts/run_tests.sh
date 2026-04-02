@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Resolve the absolute path of the project root regardless of where this script is called from
+# Resolve the absolute path of the project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
