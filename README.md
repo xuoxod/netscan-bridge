@@ -45,8 +45,10 @@ To compile and run the API Bridge, the following developer toolchain is required
 ## 🛠️ Usage
 
 1. Compile the API listener:
+
    ```bash
    go build -o api-bridge main.go
    ./api-bridge
    ```
+
 2. The Bridge boots locally to `http://localhost:8080` awaiting commands.
