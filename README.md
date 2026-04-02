@@ -80,3 +80,6 @@ A critical design feature of the `rmediatech` and `netscan` ecosystem is its **"
 ### Device-Specific User Flows:
 - **Desktop/Laptop Users:** These users have the native capability to run CLIs or use `localhost`. The web UI elegantly exposes standard file-upload modalities alongside a `localhost:8081` Live Recon trigger.
 - **Mobile Users:** Mobile users cannot run low-level packet sweeps themselves. Therefore, the web UI automatically hides standard upload buttons and exclusively provides "Remote Control" inputs. Mobile users simply provide the local IP address of their computer running the Intelligence Bridge (e.g., `192.168.1.50`) and the UI handles the entire orchestration.
+
+## Phase 2: Intelligence Action Studio & Deep Recon
+The UI now features a unified Single Page Application (SPA) Action Studio that dynamically aggregates Discovery Sweeps and enables targeted Deep Protocol Recon (Port Scans) with automated rust-native artifact ingestion natively through the bridge.
