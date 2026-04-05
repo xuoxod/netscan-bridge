@@ -145,13 +145,24 @@ return
 if !ok {
 actionType, _ = cmd["type"].(string)
 }
-            
-if actionType == "scan" || actionType == "discover" || actionType == "weirdpackets" {
-target, _ := cmd["target"].(string)
-scanType := "discover"
-if actionType == "scan" || actionType == "weirdpackets" {
-scanType = "scan"
-}
+                        if actionType == "scan" || actionType == "discover" || actionType == "weirdpackets" || actionType == "specter" {
+                                target, _ := cmd["target"].(string)
+
+                                var customFlags []string
+                                if rawFlags, ok := cmd["flags"].([]interface{}); ok {
+                                        for _, f := range rawFlags {
+                                                if fStr, ok := f.(string); ok {
+                                                        customFlags = append(customFlags, fStr)
+                                                }
+                                        }
+                                }
+
+                                scanType := "discover"
+                                if actionType == "scan" || actionType == "weirdpackets" {
+                                        scanType = "scan"
+                                } else if actionType == "specter" {
+                                        scanType = "specter"
+                                }
 
 mu.Lock()
 if activeCancel != nil {
@@ -164,9 +175,18 @@ mu.Unlock()
 go func() {
 log.Printf("⚡ Executing %s against %s", scanType, target)
 d.SendText(`{"event":"toast", "text":"Started ` + scanType + ` against ` + target + `"}`)
+					onStdout := func(line string) {
+							safeStr, _ := json.Marshal(line)
+							d.SendText(`{"event":"stream", "channel":"stdout", "text":` + string(safeStr) + `}`)
+					}
 
-out, execErr := executor.ExecuteScan(currCtx, target, scanType)
-if execErr != nil {
+					onStderr := func(line string) {
+							safeStr, _ := json.Marshal(line)
+							d.SendText(`{"event":"stream", "channel":"stderr", "text":` + string(safeStr) + `}`)
+					}
+
+					out, execErr := executor.ExecuteScan(currCtx, target, scanType, onStdout, onStderr, customFlags...)
+					if execErr != nil {
 errMsg := fmt.Sprintf(`{"event":"toast", "text":"Execution failed: %v"}`, execErr)
 d.SendText(errMsg)
 return

@@ -140,7 +140,7 @@ func TestExecuteScan(t *testing.T) {
 				time.Sleep(5 * time.Millisecond)
 			}
 
-			out, err := ExecuteScan(ctx, tt.target, tt.scanType, tt.flags...)
+			out, err := ExecuteScan(ctx, tt.target, tt.scanType, nil, nil, tt.flags...)
 
 			// Assert
 			if tt.shouldErr {
