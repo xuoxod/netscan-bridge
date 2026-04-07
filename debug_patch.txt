@@ -1,0 +1,18 @@
+--- main.go2026-04-05 14:00:00.000000000 -0400
++++ main.go2026-04-05 14:00:00.000000000 -0400
+@@ -252,6 +252,7 @@
+ if m.SessionID == peerID {
+ continue // My own message
+ }
++log.Printf("DEBUG MSG: Type=%s Seq=%d", m.Type, m.Seq)
+ if m.Type == "bye" {
+ log.Println("Received 'bye' from remote peer. Tearing down.")
+ cancelActiveCommand()
+@@ -308,6 +309,7 @@
+ // Add candidates that belong to this offer sequence
+ for _, m := range candidates {
+ cndMap, ok := m.Data["candidate"].(map[string]interface{})
++log.Printf("DEBUG CANDIDATE: ok=%v, Data=%v", ok, m.Data)
+ if !ok {
+ continue
+ }

@@ -1,0 +1,27 @@
+--- main.go.orig 2026-04-05 14:00:00.000000000 -0400
++++ main.go2026-04-05 14:00:00.000000000 -0400
+@@ -282,15 +282,23 @@
+ 
+ // Add candidates that belong to this offer sequence
+ for _, m := range candidates {
+-candRaw, _ := json.Marshal(m.Data["candidate"])
++cndMap, ok := m.Data["candidate"].(map[string]interface{})
++if !ok {
++continue
++}
++if mid, exists := cndMap["sdpMid"]; exists {
++if midNum, isNum := mid.(float64); isNum {
++cndMap["sdpMid"] = fmt.Sprintf("%.0f", midNum)
++}
++}
++candRaw, _ := json.Marshal(cndMap)
+ var cand webrtc.ICECandidateInit
+ err := json.Unmarshal(candRaw, &cand)
+ if err != nil { log.Printf("CANDIDATE UNMARSHAL ERROR: %v", err) }
+ if err == nil {
+ errAdd := pc.AddICECandidate(cand)
+ if errAdd != nil { log.Printf("AddICECandidate err: %v", errAdd) }
+-pc.AddICECandidate(cand)
+ }
+ }
+ time.Sleep(1500 * time.Millisecond)
