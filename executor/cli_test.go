@@ -39,6 +39,13 @@ func TestHelperProcess(t *testing.T) {
 	}
 
 	cmd := args[0]
+
+	// handle stdbuf wrapper
+	if cmd == "stdbuf" && len(args) > 2 {
+		cmd = "netscan"
+		// Shift args so args[0] evaluates as the actual target
+		args = args[2:]
+	}
 	if cmd == "netscan" {
 		// Simulate execution failure edge case
 		for _, arg := range args[1:] {

@@ -32,8 +32,8 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 		return "", errors.New("invalid target format: illegal characters detected")
 	}
 
-	if scanType != "discover" && scanType != "scan" && scanType != "specter" {
-		return "", errors.New("invalid scanType, must be 'discover', 'scan', or 'specter'")
+	if scanType != "discover" && scanType != "scan" && scanType != "specter" && scanType != "audit" && scanType != "weirdpackets" {
+		return "", errors.New("invalid scanType, must be 'discover', 'scan', 'specter', 'audit', or 'weirdpackets'")
 	}
 
 	netscanBin := os.Getenv("NETSCAN_BIN_PATH")
@@ -55,12 +55,20 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 		args = append(args, "--pt-json", "--out-dir", tmpDir)
 	} else if scanType == "specter" {
 		args = append(args, "--out-dir", tmpDir)
+	} else if scanType == "audit" {
+		logFile := filepath.Join(tmpDir, "audit.jsonl")
+		args = append(args, "--log-file", logFile)
+	} else if scanType == "weirdpackets" {
+		// weirdpackets does not output JSON or accept --out-dir
 	} else {
 		args = append(args, "--json", "--out-dir", tmpDir)
 	}
 	args = append(args, flags...)
 
-	cmd := execCommandContext(ctx, netscanBin, args...)
+	// Force line-buffering on Linux using stdbuf to prevent Rust fully buffering stdout when piped
+	stdbufArgs := []string{"-oL", netscanBin}
+	stdbufArgs = append(stdbufArgs, args...)
+	cmd := execCommandContext(ctx, "stdbuf", stdbufArgs...)
 
 	// Enable Graceful Abort if context is cancelled
 	cmd.Cancel = func() error {
@@ -88,6 +96,7 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 		scanner := bufio.NewScanner(io.TeeReader(stdoutPipe, &stdoutBuf))
 		for scanner.Scan() {
 			line := scanner.Text()
+			fmt.Println(line)
 			if onStdout != nil {
 				onStdout(line)
 			}
@@ -100,6 +109,7 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 		scanner := bufio.NewScanner(io.TeeReader(stderrPipe, &stderrBuf))
 		for scanner.Scan() {
 			line := scanner.Text()
+			fmt.Println(line)
 			if onStderr != nil {
 				onStderr(line)
 			}
@@ -113,6 +123,8 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 	wg.Wait() // Ensure all pipes are consumed before waiting on completion
 
 	if err := cmd.Wait(); err != nil {
+		// weirdpackets ends successfully if user aborts or hits limit, or can return errors.
+		// Let's just log it.
 		if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return "", fmt.Errorf("scan aborted by user or timeout")
 		}
@@ -123,7 +135,22 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 	var fileContent []byte
 	var readErr error
 
-	if scanType == "discover" {
+	if scanType == "weirdpackets" {
+		// Weirdpackets produces no artifact, stdout/stderr is the output
+		if stdoutBuf.Len() > 0 {
+			return stdoutBuf.String(), nil
+		}
+		return "Weirdpackets run completed.", nil
+	} else if scanType == "audit" {
+		logFile := filepath.Join(tmpDir, "audit.jsonl")
+		fileContent, readErr = os.ReadFile(logFile)
+		if readErr != nil && stdoutBuf.Len() > 0 {
+			return stdoutBuf.String(), nil
+		} else if readErr == nil {
+			return string(fileContent), nil
+		}
+		return "Audit run completed.", nil
+	} else if scanType == "discover" {
 		jsonArtifactPath := filepath.Join(tmpDir, "discovered_hosts.json")
 		fileContent, readErr = os.ReadFile(jsonArtifactPath)
 	} else if scanType == "scan" || scanType == "specter" {
@@ -141,9 +168,6 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 	}
 
 	if readErr != nil {
-		// Fallback: If it didn't produce the JSON file, it might just be the raw text output.
-		// For a purely API-driven bridge, missing the artifact is a systemic error,
-		// but we'll return stdout as a resilient fallback in case a non-discovery command was triggered.
 		if stdoutBuf.Len() > 0 {
 			return stdoutBuf.String(), nil
 		}

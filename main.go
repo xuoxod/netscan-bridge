@@ -34,17 +34,61 @@ SessionID string                 `json:"sessionId"`
 Data      map[string]interface{} `json:"data"`
 }
 
+func ParseFrontendCandidate(raw []byte) (webrtc.ICECandidateInit, error) {
+var cndMap map[string]interface{}
+if err := json.Unmarshal(raw, &cndMap); err != nil {
+return webrtc.ICECandidateInit{}, fmt.Errorf("failed raw parse: %w", err)
+}
+
+if mid, exists := cndMap["sdpMid"]; exists && mid != nil {
+if midNum, isNum := mid.(float64); isNum {
+cndMap["sdpMid"] = fmt.Sprintf("%.0f", midNum)
+}
+}
+
+sanitizedRaw, err := json.Marshal(cndMap)
+if err != nil {
+return webrtc.ICECandidateInit{}, fmt.Errorf("failed remashal: %w", err)
+}
+
+var cand webrtc.ICECandidateInit
+if err := json.Unmarshal(sanitizedRaw, &cand); err != nil {
+return webrtc.ICECandidateInit{}, fmt.Errorf("failed cast to ICInit: %w", err)
+}
+
+return cand, nil
+}
+
+func ExtractLatestSignalingState(msgs []SignalMessage, selfPeerID string) (lastOffer *SignalMessage, candidates []SignalMessage, reset bool) {
+for _, m := range msgs {
+if m.SessionID == selfPeerID { continue }
+if m.Type == "bye" {
+reset = true
+lastOffer = nil
+candidates = nil
+continue
+}
+if m.Type == "offer" {
+offerCopy := m
+lastOffer = &offerCopy
+candidates = nil
+reset = false
+} else if m.Type == "candidate" {
+candidates = append(candidates, m)
+}
+}
+return lastOffer, candidates, reset
+}
+
 func main() {
 var cfg Config
 
-// Parse config.yaml if exists
 if b, err := os.ReadFile("config.yaml"); err == nil {
 if err := yaml.Unmarshal(b, &cfg); err != nil {
 log.Fatalf("Failed to parse config.yaml: %v", err)
 }
 }
 
-// Environment overrides
 if envSig := os.Getenv("SIGNALING_URL"); envSig != "" {
 cfg.SignalingURL = envSig
 }
@@ -85,7 +129,6 @@ cancelActiveCommand := func() {
 mu.Lock()
 defer mu.Unlock()
 if activeCancel != nil {
-log.Println("⚠️ Cancelling active OS execution due to disconnect...")
 activeCancel()
 activeCancel = nil
 }
@@ -93,9 +136,6 @@ activeCancel = nil
 
 pc.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 log.Printf("[WebRTC] Connection State: %s", s.String())
-if s == webrtc.PeerConnectionStateDisconnected || s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateClosed {
-cancelActiveCommand()
-}
 })
 
 sendSignal := func(msgType string, data map[string]interface{}) {
@@ -119,8 +159,10 @@ resp.Body.Close()
 
 pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 if c == nil {
+log.Println("DEBUG: Local ICE Gathering Completed")
 return
 }
+log.Printf("Generated Local ICE Candidate: %v", c.String())
 b, _ := json.Marshal(c.ToJSON())
 var raw map[string]interface{}
 json.Unmarshal(b, &raw)
@@ -141,28 +183,26 @@ log.Println("Received 'bye' over DataChannel. Tearing down.")
 cancelActiveCommand()
 return
 }
-            actionType, ok := cmd["action"].(string)
+actionType, ok := cmd["action"].(string)
 if !ok {
 actionType, _ = cmd["type"].(string)
 }
-                        if actionType == "scan" || actionType == "discover" || actionType == "weirdpackets" || actionType == "specter" {
-                                target, _ := cmd["target"].(string)
+if actionType == "scan" || actionType == "discover" || actionType == "weirdpackets" || actionType == "specter" || actionType == "audit" {
+target, _ := cmd["target"].(string)
 
-                                var customFlags []string
-                                if rawFlags, ok := cmd["flags"].([]interface{}); ok {
-                                        for _, f := range rawFlags {
-                                                if fStr, ok := f.(string); ok {
-                                                        customFlags = append(customFlags, fStr)
-                                                }
-                                        }
-                                }
+var customFlags []string
+if rawFlags, ok := cmd["flags"].([]interface{}); ok {
+for _, f := range rawFlags {
+if fStr, ok := f.(string); ok {
+customFlags = append(customFlags, fStr)
+}
+}
+}
 
-                                scanType := "discover"
-                                if actionType == "scan" || actionType == "weirdpackets" {
-                                        scanType = "scan"
-                                } else if actionType == "specter" {
-                                        scanType = "specter"
-                                }
+scanType := actionType
+if actionType == "discover" {
+scanType = "discover"
+}
 
 mu.Lock()
 if activeCancel != nil {
@@ -175,39 +215,42 @@ mu.Unlock()
 go func() {
 log.Printf("⚡ Executing %s against %s", scanType, target)
 d.SendText(`{"event":"toast", "text":"Started ` + scanType + ` against ` + target + `"}`)
-					onStdout := func(line string) {
-							safeStr, _ := json.Marshal(line)
-							d.SendText(`{"event":"stream", "channel":"stdout", "text":` + string(safeStr) + `}`)
-					}
+onStdout := func(line string) {
+safeStr, _ := json.Marshal(line)
+d.SendText(`{"event":"stream", "channel":"stdout", "text":` + string(safeStr) + `}`)
+}
 
-					onStderr := func(line string) {
-							safeStr, _ := json.Marshal(line)
-							d.SendText(`{"event":"stream", "channel":"stderr", "text":` + string(safeStr) + `}`)
-					}
+onStderr := func(line string) {
+safeStr, _ := json.Marshal(line)
+d.SendText(`{"event":"stream", "channel":"stderr", "text":` + string(safeStr) + `}`)
+}
 
-					out, execErr := executor.ExecuteScan(currCtx, target, scanType, onStdout, onStderr, customFlags...)
-					if execErr != nil {
+out, execErr := executor.ExecuteScan(currCtx, target, scanType, onStdout, onStderr, customFlags...)
+if execErr != nil {
 errMsg := fmt.Sprintf(`{"event":"toast", "text":"Execution failed: %v"}`, execErr)
 d.SendText(errMsg)
 return
 }
 
-// We send the JSON output as a "toast" for simplicity, or we can send it as scan_complete
-// Wait, the mobile needs the json payload to render the UI? No, Action Studio just shows it.
 log.Println("✅ Execution complete. Streaming output back...")
-// For big payloads, string replacement can be heavy, but normally it fits in memory
 resp := map[string]interface{}{
 "event": "scan_complete",
+"type":  scanType,
 "data":  out,
 }
-bResp, _ := json.Marshal(resp)
-d.Send(bResp)
+b, _ := json.Marshal(resp)
+d.SendText(string(b))
 }()
+} else if actionType == "abort" {
+log.Println("Received ABORT command from UI.")
+cancelActiveCommand()
+d.SendText(`{"event":"toast", "text":"Remote execution forcefully aborted."}`)
+} else {
+log.Printf("Unknown command received: %s", actionType)
 }
 })
 })
 
-// Start signaling polling loop
 go func() {
 lastSeq := 0
 for {
@@ -215,15 +258,19 @@ urlStr := fmt.Sprintf("%s/%s?since=%d", cfg.SignalingURL, url.PathEscape(cfg.Roo
 req, _ := http.NewRequest("GET", urlStr, nil)
 req.Header.Set("Authorization", "Bearer "+cfg.Token)
 resp, err := http.DefaultClient.Do(req)
-
 if err != nil {
-log.Printf("[Signal] GET error: %v", err)
+log.Printf("[Signal] POLL error: %v", err)
 time.Sleep(3 * time.Second)
 continue
 }
 
-b, _ := io.ReadAll(resp.Body)
+b, err := io.ReadAll(resp.Body)
 resp.Body.Close()
+if err != nil {
+log.Printf("[Signal] Body read error: %v", err)
+time.Sleep(3 * time.Second)
+continue
+}
 
 if resp.StatusCode != http.StatusOK {
 log.Printf("[Signal] Non-200 status: %d - %s", resp.StatusCode, string(b))
@@ -231,62 +278,76 @@ time.Sleep(3 * time.Second)
 continue
 }
 
+var respObj struct {
+Messages []SignalMessage `json:"messages"`
+MaxSeq   int             `json:"maxSeq"`
+}
+
 var msgs []SignalMessage
-if err := json.Unmarshal(b, &msgs); err != nil {
-time.Sleep(1 * time.Second)
-continue
+err = json.Unmarshal(b, &respObj)
+if err == nil {
+msgs = respObj.Messages
+if respObj.MaxSeq > lastSeq {
+lastSeq = respObj.MaxSeq
+}
+} else {
+_ = json.Unmarshal(b, &msgs)
 }
 
 for _, m := range msgs {
 if m.Seq > lastSeq {
 lastSeq = m.Seq
 }
-if m.SessionID == peerID {
-continue // My own message
-}
-if m.Type == "bye" {
-log.Println("Received 'bye' from remote peer. Tearing down.")
-cancelActiveCommand()
-continue
 }
 
-if m.Type == "offer" {
+lastOffer, candidates, reset := ExtractLatestSignalingState(msgs, peerID)
+
+if reset {
+log.Println("Received 'bye' from remote peer. Tearing down.")
+cancelActiveCommand()
+}
+
+if lastOffer != nil {
 log.Println("Received offer from manager")
-sdpRaw, _ := json.Marshal(m.Data["sdp"])
+sdpRaw, _ := json.Marshal(lastOffer.Data["sdp"])
 var sdp webrtc.SessionDescription
 if err := json.Unmarshal(sdpRaw, &sdp); err == nil {
+if pc.SignalingState() == webrtc.SignalingStateStable || pc.SignalingState() == webrtc.SignalingStateHaveLocalOffer {
 if err := pc.SetRemoteDescription(sdp); err != nil {
 log.Printf("Failed setting remote desc: %v", err)
-continue
-}
+} else {
 ans, err := pc.CreateAnswer(nil)
 if err != nil {
 log.Printf("Failed creating answer: %v", err)
-continue
-}
-if err := pc.SetLocalDescription(ans); err != nil {
+} else if err := pc.SetLocalDescription(ans); err != nil {
 log.Printf("Failed setting local desc: %v", err)
-continue
-}
-
+} else {
 sdpOut, _ := json.Marshal(ans)
 var outMap map[string]interface{}
 json.Unmarshal(sdpOut, &outMap)
 sendSignal("answer", map[string]interface{}{"sdp": outMap})
-}
-} else if m.Type == "candidate" {
-candRaw, _ := json.Marshal(m.Data["candidate"])
-var cand webrtc.ICECandidateInit
-if err := json.Unmarshal(candRaw, &cand); err == nil {
-pc.AddICECandidate(cand)
+log.Printf("DEBUG: Answer sent successfully!")
 }
 }
 }
+} else {
+log.Printf("ERROR: Failed parsing SDP raw: %s | err: %v", string(sdpRaw), err)
+}
+}
+
+for _, m := range candidates {
+cRaw, _ := json.Marshal(m.Data["candidate"])
+cand, err := ParseFrontendCandidate(cRaw)
+if err != nil { continue }
+if err := pc.AddICECandidate(cand); err == nil {
+log.Printf("Added ICE candidate: %v", cand.Candidate)
+}
+}
+
 time.Sleep(1500 * time.Millisecond)
 }
 }()
 
-// Graceful shutdown
 sigChan := make(chan os.Signal, 1)
 signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 s := <-sigChan
