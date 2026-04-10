@@ -13,7 +13,7 @@ export ALLOWED_ORIGINS="http://localhost:8080"
 
 # Bridge Linkage Variables (Required for the Go Bridge to join WebRTC bounds)
 export SIGNALING_URL="${SIGNALING_URL:-http://localhost:8080/api/signal}"
-export TOKEN="${TOKEN:-}"
+export TOKEN="${TOKEN:-dev_token_secret_123}"
 export ROOM_ID="${ROOM_ID:-bridge-2}"
 
 # Smart resolution for production vs development environments
