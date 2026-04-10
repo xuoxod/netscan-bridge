@@ -13,8 +13,8 @@ export ALLOWED_ORIGINS="http://localhost:8080"
 
 # Bridge Linkage Variables (Required for the Go Bridge to join WebRTC bounds)
 export SIGNALING_URL="${SIGNALING_URL:-http://localhost:8080/api/signal}"
-export TOKEN="${TOKEN:-dev_token_secret_123}"
-export ROOM_ID="${ROOM_ID:-dev_room_001}"
+export TOKEN="${TOKEN:-}"
+export ROOM_ID="${ROOM_ID:-bridge-2}"
 
 # Smart resolution for production vs development environments
 DEV_NETSCAN="/home/emhcet/private/projects/desktop/java/netscan/target/release/netscan"
@@ -43,6 +43,11 @@ echo "================================================="
 echo "🔨 Building the bridge agent..."
 go build -o bridge_app main.go
 
-echo "🟢 Running the bridge agent ($NETSCAN_BIN_PATH).."
+echo "🟢 Running the bridge agent ($NETSCAN_BIN_PATH) as root..."
 # Ensure execution happens without Go toolchain dependency for the root session
-./bridge_app
+# sudo -E preserves the environment variables (PORT, ROOM_ID, NETSCAN_BIN_PATH, etc.)
+while true; do
+    sudo -E ./bridge_app
+    echo "🔄 Bridge agent disconnected. Restarting in 2 seconds..."
+    sleep 2
+done
