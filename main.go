@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -238,14 +239,37 @@ func main() {
 						return
 					}
 
-					log.Println("✅ Execution complete. Streaming output back...")
+					log.Printf("✅ Execution complete. Streaming output back... Payload size: %d", len(out))
 					resp := map[string]interface{}{
 						"event": "scan_complete",
 						"type":  scanType,
 						"data":  out,
 					}
 					b, _ := json.Marshal(resp)
-					d.SendText(string(b))
+					bSize := len(b)
+					if bSize > 16384 {
+						chunkSize := 16384
+						totalChunks := (bSize + chunkSize - 1) / chunkSize
+						id := fmt.Sprintf("%d", time.Now().UnixNano())
+						for i := 0; i < totalChunks; i++ {
+							end := (i + 1) * chunkSize
+							if end > bSize {
+								end = bSize
+							}
+							chunkMsg := map[string]interface{}{
+								"event": "chunk",
+								"id":    id,
+								"index": i,
+								"total": totalChunks,
+								"data":  base64.StdEncoding.EncodeToString(b[i*chunkSize : end]),
+							}
+							cb, _ := json.Marshal(chunkMsg)
+							d.SendText(string(cb))
+							time.Sleep(5 * time.Millisecond)
+						}
+					} else {
+						d.SendText(string(b))
+					}
 				}()
 			} else if actionType == "abort" {
 				log.Println("Received ABORT command from UI.")

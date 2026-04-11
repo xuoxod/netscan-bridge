@@ -50,18 +50,20 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 	defer os.RemoveAll(tmpDir)
 
 	// Combine base discovery commands with artifact isolation flags
-	args := []string{scanType, "-t", target}
+	var args []string
 	if scanType == "scan" {
-		args = append(args, "--pt-json", "--out-dir", tmpDir)
+		// Map "scan" action to the "recon" engine for single IP targeting
+		args = []string{"recon", "-i", target, "--pt-json", "--out-dir", tmpDir}
 	} else if scanType == "specter" {
-		args = append(args, "--out-dir", tmpDir)
+		args = []string{"specter", "-t", target, "--out-dir", tmpDir}
 	} else if scanType == "audit" {
 		logFile := filepath.Join(tmpDir, "audit.jsonl")
-		args = append(args, "--log-file", logFile)
+		args = []string{"audit", "-t", target, "--log-file", logFile}
 	} else if scanType == "weirdpackets" {
 		// weirdpackets does not output JSON or accept --out-dir
+		args = []string{"weirdpackets", "-t", target}
 	} else {
-		args = append(args, "--json", "--out-dir", tmpDir)
+		args = []string{scanType, "-t", target, "--json", "--out-dir", tmpDir}
 	}
 	args = append(args, flags...)
 
