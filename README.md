@@ -35,3 +35,15 @@ SIGNALING_URL="http://localhost:8080/api/signal" \
 ## Integration
 
 See the `rmediatech` main repository docs on `MOBILE_BRIDGE_SETUP_GUIDE.md` for specific instructions on painting a mobile user through the WebRTC handshake.
+
+## Edge Node Architecture
+
+```text
+📦 netscan_bridge (Edge Execution Node)
+├── 🔒 constants/          # Shared system mappings & WebRTC definitions
+├── 🧰 executor/           # Edge process management & reverse shells
+├── 📡 logger/             # Telemetry & P2P payload chunking logic
+├── 🛠️ scripts/            # Build automation & multi-platform compilation wrappers
+├── 🚀 main.go             # The daemon entrypoint (Headless WebRTC)
+└── 📜 README.md           # This Edge Node documentation
+```
