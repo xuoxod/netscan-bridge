@@ -283,6 +283,7 @@ func main() {
 
 	go func() {
 		lastSeq := 0
+		firstPoll := true
 		for {
 			urlStr := fmt.Sprintf("%s/%s?since=%d", cfg.SignalingURL, url.PathEscape(cfg.RoomID), lastSeq)
 			req, _ := http.NewRequest("GET", urlStr, nil)
@@ -333,10 +334,15 @@ func main() {
 			lastOffer, candidates, reset := ExtractLatestSignalingState(msgs, peerID)
 
 			if reset {
-				log.Println("Received 'bye' from remote peer. Tearing down.")
-				cancelActiveCommand()
-				os.Exit(0)
+				if !firstPoll {
+					log.Println("Received 'bye' from remote peer. Tearing down.")
+					cancelActiveCommand()
+					os.Exit(0)
+				} else {
+					log.Println("Ignoring historical 'bye' from previous session.")
+				}
 			}
+			firstPoll = false
 
 			if lastOffer != nil {
 				log.Println("Received offer from manager")
