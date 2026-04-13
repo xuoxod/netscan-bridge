@@ -4,12 +4,36 @@ set -e
 cd "$(dirname "$0")/.."
 
 # Dynamic Environment resolution
-if [ -z "$RMEDIA_ROOT" ]; then
-    RMEDIA_ROOT="$(dirname "$(pwd)")/rmediatech"
+# Auto-detects the workspace root by walking up the directory tree
+WORKSPACE_ROOT=$(pwd)
+while [ "$WORKSPACE_ROOT" != "/" ]; do
+    if [ -d "$WORKSPACE_ROOT/desktop/java/netscan" ]; then
+        break
+    fi
+    WORKSPACE_ROOT=$(dirname "$WORKSPACE_ROOT")
+done
+
+if [ "$WORKSPACE_ROOT" == "/" ]; then
+    echo "❌ FATAL: Could not resolve workspace root automatically."
+    echo "Please set RMEDIA_ROOT and NETSCAN_JAVA_ROOT environment variables manually."
+    exit 1
 fi
 
 if [ -z "$NETSCAN_JAVA_ROOT" ]; then
-    NETSCAN_JAVA_ROOT="$(dirname "$(dirname "$(pwd)")")/java/netscan"
+    NETSCAN_JAVA_ROOT="$WORKSPACE_ROOT/desktop/java/netscan"
+fi
+
+if [ -z "$RMEDIA_ROOT" ]; then
+    if [ -d "$WORKSPACE_ROOT/golang/rmediatech" ]; then
+        # Production server structure
+        RMEDIA_ROOT="$WORKSPACE_ROOT/golang/rmediatech"
+    elif [ -d "$WORKSPACE_ROOT/desktop/golang/rmediatech" ]; then
+        # Local Dev structure
+        RMEDIA_ROOT="$WORKSPACE_ROOT/desktop/golang/rmediatech"
+    else
+        echo "❌ FATAL: Could not find rmediatech in expected locations."
+        exit 1
+    fi
 fi
 
 echo "🔨 Compiling Bridge Agent..."
