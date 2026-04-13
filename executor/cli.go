@@ -53,7 +53,7 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 	var args []string
 	if scanType == "scan" {
 		// Map "scan" action to the "recon" engine for single IP targeting
-		args = []string{"recon", "-i", target, "--pt-json", "--out-dir", tmpDir}
+		args = []string{"recon", "--ip", target, "--pt-json", "--out-dir", tmpDir}
 	} else if scanType == "specter" {
 		args = []string{"specter", "-t", target, "--out-dir", tmpDir}
 	} else if scanType == "audit" {
@@ -62,8 +62,10 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 	} else if scanType == "weirdpackets" {
 		// weirdpackets does not output JSON or accept --out-dir
 		args = []string{"weirdpackets", "-t", target}
+	} else if scanType == "discover" {
+		args = []string{"discover", "-t", target, "--json", "--out-dir", tmpDir}
 	} else {
-		args = []string{scanType, "-t", target, "--json", "--out-dir", tmpDir}
+		args = []string{scanType, "-t", target, "--out-dir", tmpDir}
 	}
 	args = append(args, flags...)
 

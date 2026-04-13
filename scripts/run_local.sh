@@ -1,51 +1,57 @@
 #!/bin/bash
 set -e
 
-# Resolve the absolute path of the project root regardless of where this script is called from
+echo "================================================="
+echo "        🚀 RMediaTech Developer Bridge           "
+echo "================================================="
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+BRIDGE_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$BRIDGE_ROOT"
 
-# Navigate to project root to ensure 'go run' finds main.go and module paths
-cd "$PROJECT_ROOT"
+# Put back the developer defaults
+export DEV_EMAIL="$1"
 
-export PORT="8081"
-export ALLOWED_ORIGINS="http://localhost:8080"
-
-# Bridge Linkage Variables (Required for the Go Bridge to join WebRTC bounds)
-export SIGNALING_URL="${SIGNALING_URL:-http://localhost:8080/api/signal}"
-export TOKEN="${TOKEN:-dev_token_secret_123}"
-export ROOM_ID="${ROOM_ID:-bridge-2}"
-
-# Smart resolution for production vs development environments
-if [ -f "$HOME/private/projects/desktop/java/netscan/target/release/netscan" ]; then
-    # DEV Environment (emhcet layout)
-    export NETSCAN_BIN_PATH="$HOME/private/projects/desktop/java/netscan/target/release/netscan"
-    echo "🔍 Using Development NetScan binary: $NETSCAN_BIN_PATH"
-elif [ -f "$HOME/private/projects/java/netscan/target/release/netscan" ]; then
-    # PROD Environment (rick layout)
-    export NETSCAN_BIN_PATH="$HOME/private/projects/java/netscan/target/release/netscan"
-    echo "🔍 Using Production NetScan binary: $NETSCAN_BIN_PATH"
-else
-    # Fallback / Bundled Suite
-    export NETSCAN_BIN_PATH="./netscan"
-    echo "🔍 Using Fallback NetScan binary: $NETSCAN_BIN_PATH"
+if [ -z "$RMEDIA_ROOT" ]; then
+    RMEDIA_ROOT="$(dirname "$BRIDGE_ROOT")/rmediatech"
 fi
 
-echo "================================================="
-echo "🚀 Starting Intelligence Bridge"
-echo "🔑 Auth Token: $TOKEN"
-echo "🏠 Room ID: $ROOM_ID"
-echo "📡 Signaling URL: $SIGNALING_URL"
-echo "📡 Port: $PORT"
-echo "🌐 Allowed Origins (CORS): $ALLOWED_ORIGINS"
+if [ -f "$RMEDIA_ROOT/.env" ]; then
+    echo "💡 Loading backend configuration from $RMEDIA_ROOT/.env"
+    set -a
+    source "$RMEDIA_ROOT/.env"
+    set +a
+fi
+
+export SIGNALING_URL="${RMT_SIGNALING_URL:-http://localhost:8080/api/signal}"
+export TOKEN="${2:-${RMT_BRIDGE_SECRET:-dev_token_secret_123}}"
+
+HMAC_OUT=$(printf "%s" "$DEV_EMAIL" | openssl dgst -sha256 -hmac "$TOKEN" | sed 's/^.* //')
+export ROOM_ID="bridge-${HMAC_OUT:0:12}"
+
+if [ -z "$NETSCAN_BIN_PATH" ]; then
+    SIBLING_JAVA_PATH="$(dirname "$(dirname "$BRIDGE_ROOT")")/java/netscan/target/release/netscan"
+    if [ -x "$SIBLING_JAVA_PATH" ]; then
+        export NETSCAN_BIN_PATH="$SIBLING_JAVA_PATH"
+    elif [ -x "$(pwd)/netscan" ]; then
+        export NETSCAN_BIN_PATH="$(pwd)/netscan"
+    else
+        export NETSCAN_BIN_PATH="$(pwd)/netscan"
+    fi
+fi
+
+echo "✅ Dev User     : $DEV_EMAIL"
+echo "✅ Room ID      : $ROOM_ID"
+echo "✅ Signaling URL: $SIGNALING_URL"
+echo "✅ Netscan Path : $NETSCAN_BIN_PATH"
 echo "================================================="
 
-echo "🔨 Building the bridge agent..."
-go build -o bridge_app main.go
+echo "🔨 Building the bridge agent from source..."
+go build -o bridge_dev main.go
 
-echo "🟢 Running the bridge agent ($NETSCAN_BIN_PATH) as root..."
+echo "🛡️  Running the bridge agent as ROOT (required for netscan)..."
 while true; do
-    sudo -E ./bridge_app
-    echo "🔄 Bridge agent disconnected. Restarting in 2 seconds..."
+    sudo -E ./bridge_dev
+    echo "🔄 Bridge agent terminated. Restarting in 2 seconds... (Ctrl+C to quit)"
     sleep 2
 done
