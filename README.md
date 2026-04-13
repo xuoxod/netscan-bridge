@@ -47,3 +47,5 @@ See the `rmediatech` main repository docs on `MOBILE_BRIDGE_SETUP_GUIDE.md` for 
 ├── 🚀 main.go             # The daemon entrypoint (Headless WebRTC)
 └── 📜 README.md           # This Edge Node documentation
 ```
+
+<- **Panic Recovery:**  and  sandboxes recover from WebAssembly/subprocess panics, returning generic JSON errors rather than crashing the main MILESTONE: FULL SUITE SYNC. WebRTC persistence fixed, strict argument translations fixed. -->
