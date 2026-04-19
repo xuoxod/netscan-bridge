@@ -38,7 +38,25 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 
 	netscanBin := os.Getenv("NETSCAN_BIN_PATH")
 	if netscanBin == "" {
-		netscanBin = "netscan"
+		// Attempt to locate the bundled netscan binary securely.
+		// We explicitly do NOT fall back to the system PATH ("netscan") to prevent
+		// executing stale, globally installed, or unauthorized binaries on production.
+		exePath, err := os.Executable()
+		if err != nil {
+			return "", fmt.Errorf("failed to determine bridge executable path: %w", err)
+		}
+
+		exeDir := filepath.Dir(exePath)
+		bundledPath := filepath.Join(exeDir, "bin", "netscan")
+		altPath := filepath.Join(exeDir, "netscan")
+
+		if _, err := os.Stat(bundledPath); err == nil {
+			netscanBin = bundledPath
+		} else if _, err := os.Stat(altPath); err == nil {
+			netscanBin = altPath
+		} else {
+			return "", fmt.Errorf("FATAL: bundled 'netscan' binary not found at %s or %s (refusing to use system PATH)", bundledPath, altPath)
+		}
 	}
 
 	// Create an isolated ephemeral directory for this specific scan execution
@@ -51,20 +69,21 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 
 	// Combine base discovery commands with artifact isolation flags
 	var args []string
-	if scanType == "scan" {
+	switch scanType {
+	case "scan":
 		// Map "scan" action to the "recon" engine for single IP targeting
 		args = []string{"recon", "--ip", target, "--pt-json", "--out-dir", tmpDir}
-	} else if scanType == "specter" {
+	case "specter":
 		args = []string{"specter", "-t", target, "--out-dir", tmpDir}
-	} else if scanType == "audit" {
+	case "audit":
 		logFile := filepath.Join(tmpDir, "audit.jsonl")
 		args = []string{"audit", "-t", target, "--log-file", logFile}
-	} else if scanType == "weirdpackets" {
+	case "weirdpackets":
 		// weirdpackets does not output JSON or accept --out-dir
 		args = []string{"weirdpackets", "-t", target}
-	} else if scanType == "discover" {
+	case "discover":
 		args = []string{"discover", "-t", target, "--json", "--out-dir", tmpDir}
-	} else {
+	default:
 		args = []string{scanType, "-t", target, "--out-dir", tmpDir}
 	}
 	args = append(args, flags...)
