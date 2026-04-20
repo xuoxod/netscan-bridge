@@ -17,7 +17,7 @@ import (
 var execCommandContext = exec.CommandContext
 
 // strict regex defending against shell injection characters. Only CIDR, IP, and Hostnames allowed.
-var validTargetRegex = regexp.MustCompile(`^[a-zA-Z0-9\.\-:/]+$`)
+var validTargetRegex = regexp.MustCompile(`^[a-zA-Z0-9.\-:/]+$`)
 
 // ExecuteScan securely triggers the OS binary within an isolated temporary workspace,
 // grabs the resulting JSON artifact, and tears down the workspace securely.
@@ -79,8 +79,7 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 		logFile := filepath.Join(tmpDir, "audit.jsonl")
 		args = []string{"audit", "-t", target, "--log-file", logFile}
 	case "weirdpackets":
-		// weirdpackets does not output JSON or accept --out-dir
-		args = []string{"weirdpackets", "-t", target}
+		args = []string{"weirdpackets", "-t", target, "--out-dir", tmpDir}
 	case "discover":
 		args = []string{"discover", "-t", target, "--json", "--out-dir", tmpDir}
 	default:
@@ -158,13 +157,8 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 	var fileContent []byte
 	var readErr error
 
-	if scanType == "weirdpackets" {
-		// Weirdpackets produces no artifact, stdout/stderr is the output
-		if stdoutBuf.Len() > 0 {
-			return stdoutBuf.String(), nil
-		}
-		return "Weirdpackets run completed.", nil
-	} else if scanType == "audit" {
+	switch scanType {
+	case "audit":
 		logFile := filepath.Join(tmpDir, "audit.jsonl")
 		fileContent, readErr = os.ReadFile(logFile)
 		if readErr != nil && stdoutBuf.Len() > 0 {
@@ -173,14 +167,18 @@ func ExecuteScan(ctx context.Context, target string, scanType string, onStdout f
 			return string(fileContent), nil
 		}
 		return "Audit run completed.", nil
-	} else if scanType == "discover" {
+	case "discover":
 		jsonArtifactPath := filepath.Join(tmpDir, "discovered_hosts.json")
 		fileContent, readErr = os.ReadFile(jsonArtifactPath)
-	} else if scanType == "scan" || scanType == "specter" {
-		// Find scan-*.json or specter_report_*.json
-		matchPattern := "scan-*.json"
-		if scanType == "specter" {
+	case "scan", "specter", "weirdpackets":
+		var matchPattern string
+		switch scanType {
+		case "specter":
 			matchPattern = "specter_report_*.json"
+		case "weirdpackets":
+			matchPattern = "weirdpackets_*.json"
+		default:
+			matchPattern = "scan-*.json"
 		}
 		matches, err := filepath.Glob(filepath.Join(tmpDir, matchPattern))
 		if err != nil || len(matches) == 0 {

@@ -30,9 +30,13 @@ HMAC_OUT=$(printf "%s" "$DEV_EMAIL" | openssl dgst -sha256 -hmac "$TOKEN" | sed 
 export ROOM_ID="bridge-${HMAC_OUT:0:12}"
 
 if [ -z "$NETSCAN_BIN_PATH" ]; then
-    SIBLING_JAVA_PATH="$(dirname "$(dirname "$BRIDGE_ROOT")")/java/netscan/target/release/netscan"
-    if [ -x "$SIBLING_JAVA_PATH" ]; then
-        export NETSCAN_BIN_PATH="$SIBLING_JAVA_PATH"
+    SIBLING_JAVA_PATH_DEV="$(dirname "$(dirname "$BRIDGE_ROOT")")/java/netscan/target/release/netscan"
+    SIBLING_JAVA_PATH_PROD="$(dirname "$(dirname "$BRIDGE_ROOT")")/desktop/java/netscan/target/release/netscan"
+    
+    if [ -x "$SIBLING_JAVA_PATH_DEV" ]; then
+        export NETSCAN_BIN_PATH="$SIBLING_JAVA_PATH_DEV"
+    elif [ -x "$SIBLING_JAVA_PATH_PROD" ]; then
+        export NETSCAN_BIN_PATH="$SIBLING_JAVA_PATH_PROD"
     elif [ -x "$(pwd)/netscan" ]; then
         export NETSCAN_BIN_PATH="$(pwd)/netscan"
     else
