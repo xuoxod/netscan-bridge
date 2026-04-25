@@ -49,3 +49,16 @@ See the `rmediatech` main repository docs on `MOBILE_BRIDGE_SETUP_GUIDE.md` for 
 ```
 
 <- **Panic Recovery:**  and  sandboxes recover from WebAssembly/subprocess panics, returning generic JSON errors rather than crashing the main MILESTONE: FULL SUITE SYNC. WebRTC persistence fixed, strict argument translations fixed. -->
+
+
+## Ecosystem Architecture: Decoupled by Design
+
+This project serves as a critical standalone layer but natively ties into the **RMediaTech** web application.
+
+Following strict Separation of Concerns (SoC) and Decoupling principles, each core module (`netscan`, `netscan_bridge`, and `bastion`) can and should be run entirely independently:
+*   **CLI**: Fully functional standalone CLI utilities.
+*   **Daemon**: Extendable for background, telemetry, or radio surveillance.
+*   **FFI/Scripts**: Can be easily integrated, scripted, or consumed by external programs.
+
+This ensures zero vendor-lock-in while acting as a core microservice for RMediaTech's Universal Ingestion Pipelines.
+
