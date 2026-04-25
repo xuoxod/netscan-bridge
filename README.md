@@ -62,3 +62,16 @@ Following strict Separation of Concerns (SoC) and Decoupling principles, each co
 
 This ensures zero vendor-lock-in while acting as a core microservice for RMediaTech's Universal Ingestion Pipelines.
 
+
+
+## Ecosystem Architecture: Decoupled by Design
+
+This project serves as a critical standalone layer but natively ties into the **RMediaTech** web application.
+
+Following strict Separation of Concerns (SoC) and Decoupling principles, each core module (`netscan`, `netscan_bridge`, and `bastion`) can and should be run entirely independently:
+*   **CLI**: Fully functional standalone CLI utilities.
+*   **Daemon**: Extendable for background, telemetry, or radio surveillance.
+*   **FFI/Scripts**: Can be easily integrated, scripted, or consumed by external programs.
+
+This ensures zero vendor-lock-in while acting as a core microservice for RMediaTech's Universal Ingestion Pipelines.
+
